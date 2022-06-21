@@ -23,18 +23,27 @@ mkfifo -m600 "$TMPDIR/stdout"
 mkfifo -m600 "$TMPDIR/stderr"
 
 if [ -t 1 ]; then
-  UNBUFFER="unbuffer -p "
+  UNBUFFER= #"unbuffer -p "
 else
   UNBUFFER=""
 fi
 
+# FIXME: "safe 'echo xx'" and "safe echo xx" should not be the same.
 # I change HOME to be sure that .bashrc, .asound, .Xauthority are not copied!
-HOME="$TMPDIR" firejail --ignore=seccomp --noprofile --disable-mnt --nogroups --nonewprivs --notv --nou2f --novideo --private=. --seccomp --env=DISPLAY=:100 \
-  $ARGS
+HOME="$TMPDIR" SHELL=/bin/sh firejail --ignore=seccomp --profile=default --shell=none --disable-mnt --nogroups --nonewprivs --notv --nou2f --novideo --private=. --seccomp \
+  	sh -c "$UNBUFFER$ARGS 1>$TMPDIR/stdout 2>$TMPDIR/stderr" 2>/dev/null &
+#HOME="$TMPDIR" SHELL=/bin/sh firejail --ignore=seccomp --profile=default --shell=none --disable-mnt --nogroups --nonewprivs --notv --nou2f --novideo --private=. --seccomp --env=DISPLAY=:100 \
+#  xinit /bin/sh -c "/bin/sh -c \"$UNBUFFER$ARGS\" 1>$TMPDIR/stdout 2>$TMPDIR/stderr" -- -config 	dummy-1920x1080.conf -quiet :100 2>/dev/null &
+P=$!
 
-# cat "$TMPDIR/stdout" &
-# P1=$!
-# cat "$TMPDIR/stderr" >&2 &
-# P2=$!
+cat "$TMPDIR/stdout" &
+P1=$!
+cat "$TMPDIR/stderr" >&2 &
+P2=$!
+	
+wait $P1 $P2
 
-# wait $P1 $P2
+wait $P
+status=$?
+exit $status
+
