@@ -1,0 +1,14 @@
+#!/bin/bash
+
+needle="$1"
+max="$2"
+
+if test max = ''; then
+  max=500
+fi
+
+git rev-list --all \
+  | head -n$max \
+  | while read -r commit; do
+    echo "$(git diff --shortstat "$commit" "$needle") -- $(git log -1 --pretty="format:%h %ci" "$commit")";
+  done #| sort -n | head -10

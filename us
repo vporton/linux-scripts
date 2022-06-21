@@ -1,0 +1,10 @@
+#!/bin/bash
+
+while true; do
+    "$@";
+    case $? in
+      0) break ;;
+      127) exit 127 ;;
+      130) exit 130 ;;
+    esac
+done

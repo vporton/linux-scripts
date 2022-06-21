@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# Script to run a shell command without breaching security of your home dir:
+
+# safe cat /home/me/VERY-SECRET-FILE
+# cat: /home/me/VERY-SECRET-FILE: No such file or directory
+
+# Requires `firejail`, `expect`, `xserver-xorg-video-dummy`.
+# The file /etc/X11/xorg.conf.d/dummy-1920x1080.conf is to be taken from
+# https://techoverflow.net/2019/02/23/how-to-run-x-server-using-xserver-xorg-video-dummy-driver-on-ubuntu/
+
+# TODO: 1. Make dependencies optional. 2. Make it able to run X clients.
+
+ARGS="$@"
+
+# --x11=none
+# --apparmor
+# firejail --noprofile --shell=none --disable-mnt --nogroups --nonewprivs --notv --nou2f --novideo --private=. --seccomp "$@"
+
+TMPDIR="$(mktemp -d)"
+trap "test \"$TMPDIR\" != '' && rm -rf \"$TMPDIR\"" EXIT
+mkfifo -m600 "$TMPDIR/stdout"
+mkfifo -m600 "$TMPDIR/stderr"
+
+if [ -t 1 ]; then
+  UNBUFFER="unbuffer -p "
+else
+  UNBUFFER=""
+fi
+
+# I change HOME to be sure that .bashrc, .asound, .Xauthority are not copied!
+HOME="$TMPDIR" firejail --ignore=seccomp --noprofile --disable-mnt --nogroups --nonewprivs --notv --nou2f --novideo --private=. --seccomp --env=DISPLAY=:100 \
+  $ARGS
+
+# cat "$TMPDIR/stdout" &
+# P1=$!
+# cat "$TMPDIR/stderr" >&2 &
+# P2=$!
+
+# wait $P1 $P2

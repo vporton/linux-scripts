@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# FIXME: wrong dealing with filenames containing '\n'
+# FIXME: wrong dealing with '%' symbols!
+
+usage="Usage: conv-tree [-n <name-trans>] <command> <input> <output>
+
+<name-trans> is a sed command which changes filenames.
+In <command> %1 and %2 are replaced correspondingly by
+the input file name and the output file name.
+
+Example: conv-tree -n 's/.gif$/.bmp/' 'convert %1 %2' gifs bitmaps"
+
+usage_error() {
+    echo "$usage"
+    exit 1
+}
+
+if [ $# -lt 2 ]; then usage_error; fi
+
+unset trans
+if [ "$1" == -n ]; then
+    trans="$2"
+    shift 2
+fi
+
+if [ $# != 3 ]; then usage_error; fi
+
+command="$1"
+inpdir="$2"
+outdir="$3"
+
+export inpdir outdir
+
+mkdir "$outdir"
+
+(cd "$outdir"; find "$inpdir" -type d -printf "%P\n" | xargs mkdir)
+
+find "$inpdir" \! -type d -printf "%P\n" | while read in; do
+    export in
+    if [ -n "$trans" ]; then
+	export out=`echo "$in" | sed -e "$trans"`
+    fi
+    `echo "$command" |
+	perl -pe "s=\%1=@ENV{'inpdir'}/@ENV{'in'}=g;
+		  s=\%2=@ENV{'outdir'}/@ENV{'out'}=g"`
+done
+
+unset inpdir outdir in out

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [ $# != 1    ]; then
+  echo "Usage: git merge-to <branch>"
+  exit 1
+fi
+
+current="$(git branch --show-current)"
+
+git checkout "$1"
+git merge "$current"
+git push
+git checkout "$current"

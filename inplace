@@ -1,0 +1,127 @@
+#!/bin/sh
+
+# Copyright (c) Victor Porton 2004.
+
+usage_msg='inplace [-vin] [-s <suffix>] [-d <diff>] "cmd \$IN \$OUT" <file> [<file> ...]'
+
+usage() {
+    echo "$usage_msg"
+    exit 1
+}
+
+help() {
+    echo "$usage_msg"
+    cat << EOF
+
+Performs inplace transformation of file(s).
+  --help       Show help
+  --version    Show version info
+  -i           Interactively ask confirmation
+  -n           Don't backup
+  -s <suffix>  Backup suffix (default .bak)
+  -d <diffcmd> Comparison command (default "cmp -s", can be e.g. "diff -u")
+  -v           Be verbose
+  
+Example: inplace -v "sed -e s/John/Paul/g \\\$IN > \\\$OUT" file.txt
+EOF
+    exit 0;
+}
+
+case "$1" in
+    -h|--help) help;;
+    --version) echo "inplace 1.0.2 by Victor Porton (http://freesoft.portonvictor.org)."; exit 1;
+esac
+
+file=""
+suffix=".bak"
+backup=true
+confirm=false
+verbose=false
+diff="cmp -s"
+
+while test $# -gt 1; do
+    case "$1" in
+        -v) verbose=true
+            ;;
+        -i) confirm=true
+            ;;
+        -n) backup=false
+            ;;
+        -s) suffix="$2"; shift
+            if test -z "$suffix"; then
+                echo "Suffix can't be empty" >&2
+                exit 1
+            fi
+            ;;
+        -d) diff="$2"; shift
+            if test -z "$diff"; then
+                echo "Diff command can't be empty" >&2
+                exit 1
+            fi
+            ;;
+        -*) usage
+            ;;
+        *)  cmd="$1"; shift
+            break
+            ;;
+    esac
+    shift
+done
+
+if test -z "$cmd" || test $# -lt 1; then usage; fi
+
+OUT=`tempfile -s .tmp`
+
+while test $# -ge 1; do
+    file=$1
+    IN="$file"
+    if ! test -f "$IN"; then
+        echo "File $IN doesn't exist!" >&2
+        exit 2
+    fi
+    if test $backup = true; then
+        cp "$IN" "$IN$suffix" || exit 2
+    fi
+    export IN OUT
+    if ! sh -c "$cmd"; then
+        status=$?
+        echo "** Command failed" >&2
+        if test -f "$OUT"; then rm "$OUT"; fi
+        exit 2
+    fi
+    if ! test -f "$OUT"; then
+        echo "Transfromation of file $file isn't created!" >&2
+        continue
+    fi
+    $diff -s "$IN" "$OUT"
+    case $? in
+        0) if test $verbose = true; then echo "$file unchanged."; fi
+           ;;
+        1) if test $confirm = true; then
+               overwrite=""
+               while test -z $overwrite; do
+                   echo "Overwrite? \c"; read
+                   case $REPLY in
+                       y|Y|yes|true|t|T|Yes|True|YES|TRUE|1)
+                           overwrite=true  ;;
+                       n|N|no|false|f|F|No|False|NO|FALSE|0)
+                           overwrite=false ;;
+                   esac
+               done
+               if test $overwrite = true; then
+                   mv "$OUT" "$IN" || rm "$OUT" # for the case of not writable $IN
+               else
+                   rm "$OUT"
+               fi
+           else
+               if test $verbose = true; then echo "$file changed."; fi
+               mv "$OUT" "$IN" || rm "$OUT" # for the case of not writable $IN
+           fi
+           ;;
+        2) echo "Can't compare files $IN and $OUT" >&2
+           rm "$OUT"
+           exit 2
+           ;;
+    esac
+    shift
+done

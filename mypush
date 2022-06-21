@@ -1,0 +1,5 @@
+#!/bin/bash
+
+notify-send "git push" "`git push 2>&1`" &
+# zenity
+# xterm -hold -e 'git push' &

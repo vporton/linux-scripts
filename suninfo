@@ -1,0 +1,5 @@
+#!/bin/sh
+
+{ echo 'banner %'; cat ~/.reminders.set; \
+  echo 'Sunrise [sunrise()]; sunset [sunset()] %'; } \
+  | remind -
